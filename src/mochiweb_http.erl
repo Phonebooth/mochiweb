@@ -65,35 +65,35 @@ frm(Body) ->
      "</body></html>"].
 
 default_body(Req, M, "/chunked") when M =:= 'GET'; M =:= 'HEAD' ->
-    Res = Req:ok({"text/plain", [], chunked}),
-    Res:write_chunk("First chunk\r\n"),
+    Res = mochiweb_request:ok({"text/plain", [], chunked}, Req),
+    mochiweb_request:write_chunk("First chunk\r\n", Res),
     timer:sleep(5000),
-    Res:write_chunk("Last chunk\r\n"),
-    Res:write_chunk("");
+    mochiweb_request:write_chunk("Last chunk\r\n", Res),
+    mochiweb_request:write_chunk("", Res);
 default_body(Req, M, _Path) when M =:= 'GET'; M =:= 'HEAD' ->
-    Body = io_lib:format("~p~n", [[{parse_qs, Req:parse_qs()},
-                                   {parse_cookie, Req:parse_cookie()},
-                                   Req:dump()]]),
-    Req:ok({"text/html",
+    Body = io_lib:format("~p~n", [[{parse_qs, mochiweb_request:parse_qs(Req)},
+                                   {parse_cookie, mochiweb_request:parse_cookie(Req)},
+                                   mochiweb_request:dump(Req)]]),
+    mochiweb_request:ok({"text/html",
             [mochiweb_cookies:cookie("mochiweb_http", "test_cookie")],
-            frm(Body)});
+            frm(Body)}, Req);
 default_body(Req, 'POST', "/multipart") ->
-    Body = io_lib:format("~p~n", [[{parse_qs, Req:parse_qs()},
-                                   {parse_cookie, Req:parse_cookie()},
-                                   {body, Req:recv_body()},
-                                   Req:dump()]]),
-    Req:ok({"text/html", [], frm(Body)});
+    Body = io_lib:format("~p~n", [[{parse_qs, mochiweb_request:parse_qs(Req)},
+                                   {parse_cookie, mochiweb_request:parse_cookie(Req)},
+                                   {body, mochiweb_request:recv_body(Req)},
+                                   mochiweb_request:dump(Req)]]),
+    mochiweb_request:ok({"text/html", [], frm(Body)}, Req);
 default_body(Req, 'POST', _Path) ->
-    Body = io_lib:format("~p~n", [[{parse_qs, Req:parse_qs()},
-                                   {parse_cookie, Req:parse_cookie()},
-                                   {parse_post, Req:parse_post()},
-                                   Req:dump()]]),
-    Req:ok({"text/html", [], frm(Body)});
+    Body = io_lib:format("~p~n", [[{parse_qs, mochiweb_request:parse_qs(Req)},
+                                   {parse_cookie, mochiweb_request:parse_cookie(Req)},
+                                   {parse_post, mochiweb_request:parse_post(Req)},
+                                   mochiweb_request:dump(Req)]]),
+    mochiweb_request:ok({"text/html", [], frm(Body)}, Req);
 default_body(Req, _Method, _Path) ->
-    Req:respond({501, [], []}).
+    mochiweb_request:respond({501, [], []}, Req).
 
 default_body(Req) ->
-    default_body(Req, Req:get(method), Req:get(path)).
+    default_body(Req, mochiweb_request:get(method, Req), mochiweb_request:get(path, Req)).
 
 loop(Socket, Body) ->
     ok = mochiweb_socket:setopts(Socket, [{packet, line}]),
@@ -204,7 +204,7 @@ handle_invalid_request(Socket) ->
 
 handle_invalid_request(Socket, Request, RevHeaders) ->
     Req = new_request(Socket, Request, RevHeaders),
-    Req:respond({400, [], []}),
+    mochiweb_request:respond({400, [], []}, Req),
     mochiweb_socket:close(Socket),
     exit(normal).
 
@@ -213,13 +213,13 @@ new_request(Socket, Request, RevHeaders) ->
     mochiweb:new_request({Socket, Request, lists:reverse(RevHeaders)}).
 
 after_response(Body, Req) ->
-    Socket = Req:get(socket),
-    case Req:should_close() of
+    Socket = mochiweb_request:get(socket, Req),
+    case mochiweb_request:should_close(Req) of
         true ->
             mochiweb_socket:close(Socket),
             exit(normal);
         false ->
-            Req:cleanup(),
+            mochiweb_request:cleanup(Req),
             ?MODULE:loop(Socket, Body)
     end.
 

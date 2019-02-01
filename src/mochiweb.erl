@@ -120,7 +120,7 @@ with_server(Transport, ServerFun, ClientFun) ->
 
 request_test() ->
     R = mochiweb_request:new(z, z, "/foo/bar/baz%20wibble+quux?qs=2", z, []),
-    "/foo/bar/baz wibble quux" = R:get(path),
+    "/foo/bar/baz wibble quux" = mochiweb_request:get(path, R),
     ok.
 
 -define(LARGE_TIMEOUT, 60).
@@ -181,8 +181,8 @@ do_GET(Transport, Times) ->
     PathPrefix = "/whatever/",
     ReplyPrefix = "You requested: ",
     ServerFun = fun (Req) ->
-                        Reply = ReplyPrefix ++ Req:get(path),
-                        Req:ok({"text/plain", Reply})
+                        Reply = ReplyPrefix ++ mochiweb_request:get(path, Req),
+                        mochiweb_request:ok({"text/plain", Reply}, Req)
                 end,
     TestReqs = [begin
                     Path = PathPrefix ++ integer_to_list(N),
@@ -195,9 +195,9 @@ do_GET(Transport, Times) ->
 
 do_POST(Transport, Size, Times) ->
     ServerFun = fun (Req) ->
-                        Body = Req:recv_body(),
+                        Body = mochiweb_request:recv_body(Req),
                         Headers = [{"Content-Type", "application/octet-stream"}],
-                        Req:respond({201, Headers, Body})
+                        mochiweb_request:respond({201, Headers, Body}, Req)
                 end,
     TestReqs = [begin
                     Path = "/stuff/" ++ integer_to_list(N),
